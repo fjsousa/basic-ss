@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+</head>
+<body>
+
+  <script src="http://cdn.peerjs.com/0.3/peer.js"></script>
+  <script type="text/javascript">
+
+    var peer = new Peer({host: 'localhost', port: 9000, path: '/myapp'});
+
+    var allPeers;
+
+    var AllPeers = function (array){
+      
+      //remove master Id from peer list
+      var i = array.indexOf(peer.id);
+      array.splice(i, 1);
+      this.list = array;
+
+      this.poke = function(){
+
+        //Send something to do to all peers
+        this.list.forEach(function(peerId){
+
+          var conn = peer.connect(peerId);
+          conn.on('open', function (){
+            conn.send('Do Something peer ' + peerId);
+          });
+
+        });        
+      };
+    };
+
+    peer.on('open', function () {
+
+      var ws = new WebSocket("ws:localhost:9001");
+      
+      //Master peer will receive a message with the peer list
+      ws.onmessage = function (msg) {
+        var peersList = JSON.parse(msg.data);
+        console.log('Master Peer!');
+
+        allPeers = new AllPeers(peersList);
+
+        console.log('Current peers: ', allPeers.list);
+      };
+
+    });
+
+    //Worker peer will receive something to do
+    peer.on('connection', function (conn) {
+      conn.on('data', function (data) {
+        console.log('Received Peer data:', data);
+      });
+    });
+
+
+  </script>
+
+</body>
+</html>
+
