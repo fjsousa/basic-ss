@@ -1,52 +1,32 @@
-var static = require('./static');
-static(8080);
+var http = require('http');
+var express = require('express');
+var ExpressPeerServer = require('peer').ExpressPeerServer;
 
-var PeerServer = require('peer').PeerServer;
-var WebSocketServer = require('ws').Server;
+var app = express();
 
-var peerServer = PeerServer({port: 9000, path: '/myapp'});
-var wss = new WebSocketServer({port: 9001});
+var server = http.createServer(app);
 
-var peers = [];
-peerServer.on('connection', function (id) {
+var options = {
+    debug: true
+};
+var expressPeerServer = ExpressPeerServer(server, options);
+
+app.use('/api', expressPeerServer);
+app.use('/', express.static('.'));
+
+app.use('/list', function (req, res) {
+  return res.json(Object.keys(expressPeerServer._clients.peerjs)); 
+});
+
+var port = process.env.PORT || 5000;
+server.listen(port, function () {
+  console.log('Basic-ss live at', port);
+});
+
+expressPeerServer.on('connection', function (id) {
   console.log('Peer connected with id:', id);
-  peers.push(id);
-
-  signalMaster(); 
 });
 
-peerServer.on('disconnect', function (id) {
+expressPeerServer.on('disconnect', function (id) {
   console.log('Peer %s disconnected', id);
-  var i = peers.indexOf(id);
-  peers.splice(i, 1);
-
-  signalMaster();
 });
-
-var masterSocket = null;
-  
-wss.on('connection', function(socket) {
-  //First socket is master socket
-  if (!masterSocket){
-    masterSocket = socket;
-    signalMaster();
-
-    //handle Master Socket disconnet
-    socket.on('close', function() {
-      masterSocket = null;
-      console.log('Master disconnected.');
-    });
-  }
-
-});
-
-function signalMaster(){
-  if (!masterSocket || peers.length === 0 )
-    return;
-
-  console.log('Sending peer list  to Master');
-  masterSocket.send(JSON.stringify(peers), function ack(error) {
-    if (error)
-      console.log('Error sending data to Master client.');
-  });
-}
