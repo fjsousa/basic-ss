@@ -7,7 +7,8 @@ var app = express();
 var server = http.createServer(app);
 
 var options = {
-    debug: true
+    debug: true,
+    allow_discovery: true
 };
 var expressPeerServer = ExpressPeerServer(server, options);
 
